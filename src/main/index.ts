@@ -1285,6 +1285,19 @@ const createMainWindow = (): void => {
   mainWindow.on("unmaximize", sendMainWindowStateIpc);
   mainWindow.on("minimize", sendMainWindowStateIpc);
   mainWindow.on("restore", sendMainWindowStateIpc);
+
+  // Notify ytmView of visibility changes to prevent UI freezing when backgrounded
+  mainWindow.on("hide", () => {
+    if (ytmView) {
+      ytmView.webContents.send("mainWindow:visibilityChanged", false);
+    }
+  });
+  mainWindow.on("show", () => {
+    if (ytmView) {
+      ytmView.webContents.send("mainWindow:visibilityChanged", true);
+    }
+  });
+
   mainWindow.on("close", event => {
     if (!applicationQuitting && (store.get("general").hideToTrayOnClose || isDarwin)) {
       event.preventDefault();
