@@ -1,5 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 (function () {
+  let isWindowVisible = true;
+  let hasPendingUpdate = false;
+
+  window.ytmd.onVisibilityChange((visible) => {
+    isWindowVisible = visible;
+    // Visibility handling will be managed by the throttled subscription
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    isWindowVisible = !document.hidden;
+  });
+
   function isExperimentEnabled(experimentFlag) {
     const flag = window.ytcfg.data_.EXPERIMENT_FLAGS[experimentFlag];
     if (flag && typeof flag === "string") return flag === "false" ? false : true;
@@ -503,8 +515,22 @@
     }
   });
 
+  let rafId = null;
   ytmStore.subscribe(() => {
-    let state = ytmStore.getState();
+    // Skip updates when window is hidden to prevent UI freezing
+    if (!isWindowVisible) {
+      hasPendingUpdate = true;
+      return;
+    }
+
+    if (rafId !== null) {
+      return;
+    }
+
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+
+      let state = ytmStore.getState();
 
     // Update library button for current data
     const currentMenu = document.querySelector("ytmusic-app-layout>ytmusic-player-bar").getMenuRenderer();
@@ -597,6 +623,7 @@
         playlistButton.classList.add("hidden");
       }
     }
+    });
   });
 
   ytmdControlButtons.libraryButton = libraryButton;

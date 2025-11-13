@@ -1,6 +1,26 @@
 (function() {
   const ytmStore = window.__YTMD_HOOK__.ytmStore;
 
+  let isWindowVisible = true;
+  let hasPendingUpdate = false;
+
+  window.ytmd.onVisibilityChange((visible) => {
+    isWindowVisible = visible;
+    // If window becomes visible and we have pending update, send it immediately
+    if (visible && hasPendingUpdate) {
+      hasPendingUpdate = false;
+      sendStoreState();
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    isWindowVisible = !document.hidden;
+    if (!document.hidden && hasPendingUpdate) {
+      hasPendingUpdate = false;
+      sendStoreState();
+    }
+  });
+
   function sendStoreState() {
     // We don't want to see everything in the store as there can be some sensitive data so we only send what's necessary to operate
     let state = ytmStore.getState();
@@ -63,9 +83,24 @@
       window.ytmd.sendVideoData(videoDetails, playlistId, album, likeStatus, hasFullMetadata);
     }
   });
+
+  let rafId = null;
   ytmStore.subscribe(() => {
-    sendStoreState();
+    if (!isWindowVisible) {
+      hasPendingUpdate = true;
+      return;
+    }
+
+    if (rafId !== null) {
+      return;
+    }
+
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      sendStoreState();
+    });
   });
+
   window.addEventListener("yt-action", e => {
     if (e.detail.actionName === "yt-service-request") {
       if (e.detail.args[1].createPlaylistServiceEndpoint) {
